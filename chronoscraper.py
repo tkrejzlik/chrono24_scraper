@@ -1,5 +1,5 @@
 from selenium import webdriver
-from selenium.common.exceptions import TimeoutException
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -24,7 +24,8 @@ class ChronoScraper:
                            location TEXT)
                            ''')
 
-    def __del__(self):
+    def __save_and_close_database(self):
+        self.conn.commit()
         self.conn.close()
 
     def __get_links(self):
@@ -63,10 +64,14 @@ class ChronoScraper:
                     self.__get_watches_from_site(self.driver.current_url, brand)
                 except TimeoutException:
                     break
+        self.__save_and_close_database()
 
     def __get_watches_from_site(self, link, brand_name):
         self.driver.get(link)
-        watches_on_page = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.ID, "wt-watches")))
+        try:
+            watches_on_page = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.ID, "wt-watches")))
+        except (TimeoutException, NoSuchElementException):
+            return
         html = watches_on_page.get_attribute('innerHTML')
         soup = BeautifulSoup(html, 'html.parser')
         list_of_watches_per_site = soup.find_all("div", class_="p-x-2 p-x-sm-0")

@@ -65,6 +65,7 @@ class ChronoScraper:
                 except TimeoutException:
                     break
         self.__save_and_close_database()
+        self.driver.quit()
 
     def __get_watches_from_site(self, link, brand_name):
         self.driver.get(link)

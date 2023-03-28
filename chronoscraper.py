@@ -1,8 +1,10 @@
 from selenium import webdriver
+from selenium.common.exceptions import TimeoutException
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
+import time
 
 
 class ChronoScraper:
@@ -28,15 +30,24 @@ class ChronoScraper:
         self.driver.get("https://www.chrono24.com/search/browse.htm?char=A-Z")
         cookie_button = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, "button.btn.btn-primary.btn-full-width.js-cookie-submit.wt-consent-layer-accept-all")))
         cookie_button.click()
+        time.sleep(3)
+        ad_button = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.ID, 'sticky-close')))
+        ad_button.click()
 
     def get_watches(self):
         links = self.__get_links()
         base_url = 'https://www.chrono24.com'
         for link in links:
             self.__get_watches_from_site(base_url + link + "?pageSize=120")
-            next_button = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CLASS_NAME, 'paging-next')))
-            next_button.click()
-            #   vyřešit tu pičovinu s kliknutím na next page a pak zavolat get_watches_from_site(selenium.current_url())
+            while True:
+                try:
+                    WebDriverWait(self.driver, 3).until(EC.element_to_be_clickable((By.CLASS_NAME, 'paging-next')))
+                    next_button = WebDriverWait(self.driver, 3).until(EC.element_to_be_clickable((By.CLASS_NAME, 'paging-next')))
+                    next_button.click()
+                    time.sleep(0.5)
+                    self.__get_watches_from_site(self.driver.current_url)
+                except TimeoutException:
+                    break
 
     def __get_watches_from_site(self, link):
         self.driver.get(link)

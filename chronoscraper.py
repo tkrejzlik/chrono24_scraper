@@ -6,10 +6,15 @@ from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
 import time
 import sqlite3
+import sys
+from tqdm import tqdm
+from utils import get_logger
+#watches_per_brand = sys.argv[1]
+#logger = get_logger('CHRONO24')
+#logger.info(f'SCRAPING BEGINS.')
 
 
 class ChronoScraper:
-
     def __init__(self):
         self.driver = webdriver.Chrome()
         self.conn = sqlite3.connect('chrono24.db')
@@ -34,17 +39,19 @@ class ChronoScraper:
         html = brand_list.get_attribute('innerHTML')
         soup = BeautifulSoup(html, 'html.parser')
         hrefs = {}
-        for link in soup.find_all('a'):
+        all_brands = soup.find_all('a')
+        for link in all_brands:
             href = link.get('href')
             if 'index' not in href:
                 continue
             brand_name = link.get_text()
             hrefs.update({brand_name: href})
+            # logger.info(f'SCRAPING {brand_name}')
         return hrefs
 
     def __click_cookie_button(self):
         self.driver.get("https://www.chrono24.com/search/browse.htm?char=A-Z")
-        cookie_button = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, "button.btn.btn-primary.btn-full-width.js-cookie-submit.wt-consent-layer-accept-all")))
+        cookie_button = WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, "button.btn.btn-primary.btn-full-width.js-cookie-accept-all.wt-consent-layer-accept-all.m-b-2")))
         cookie_button.click()
         time.sleep(3)
         ad_button = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.ID, 'sticky-close')))
@@ -63,11 +70,22 @@ class ChronoScraper:
                     time.sleep(0.5)
                     self.__get_watches_from_site(self.driver.current_url, brand)
                 except TimeoutException:
+                    self.conn.commit()
                     break
+
         self.__save_and_close_database()
         self.driver.quit()
 
-    def __get_watches_from_site(self, link, brand_name):
+    def __get_watches_from_site(self, link: str, brand_name: str):
+        """
+
+        Args:
+            link (str): URL suffixes to the watch
+            brand_name (str): name of the brand
+
+        Returns: nothing
+
+        """
         self.driver.get(link)
         try:
             watches_on_page = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.ID, "wt-watches")))
@@ -92,5 +110,6 @@ class ChronoScraper:
                      parsed_data[4] if len(parsed_data) > 4 else None))
 
 
-chrono_scraper = ChronoScraper()
-chrono_scraper.get_watches()
+if __name__ == '__main__':
+    chrono_scraper = ChronoScraper()
+    chrono_scraper.get_watches()
